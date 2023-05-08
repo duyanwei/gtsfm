@@ -213,7 +213,7 @@ def colmap2gtsfm(
     return img_fnames, wTi_gtsfm, intrinsics_gtsfm, sfmtracks_gtsfm
 
 
-def read_cameras_txt(fpath: str) -> Optional[List[Cal3Bundler]]:
+def read_cameras_txt(fpath: str) -> Optional[Dict[int, Cal3Bundler]]:
     """Read camera calibrations from a COLMAP-formatted cameras.txt file.
 
     Reference: https://colmap.github.io/format.html#cameras-txt
@@ -234,7 +234,7 @@ def read_cameras_txt(fpath: str) -> Optional[List[Cal3Bundler]]:
     # may not be one line per camera (could be only one line of text if shared calibration)
     num_cams = int(lines[2].replace("# Number of cameras: ", "").strip())
 
-    calibrations = []
+    calibrations = {}
     for line in lines[3:]:
 
         cam_params = line.split()
@@ -243,14 +243,14 @@ def read_cameras_txt(fpath: str) -> Optional[List[Cal3Bundler]]:
         # Currently only handles SIMPLE RADIAL and RADIAL camera models
         assert model in ["SIMPLE_RADIAL", "RADIAL"]
         if model == "SIMPLE_RADIAL":
-            _, _, img_w, img_h, fx, u0, v0, k1 = cam_params[:8]
+            cam_id, _, img_w, img_h, fx, u0, v0, k1 = cam_params[:8]
             img_w, img_h, fx, u0, v0, k1 = int(img_w), int(img_h), float(fx), float(u0), float(v0), float(k1)
             # Convert COLMAP's SIMPLE_RADIAL to GTSAM's Cal3Bundler:
             # Add second radial distortion coefficient of value zero.
             k2 = 0
-            calibrations.append(Cal3Bundler(fx, k1, k2, u0, v0))
+            calibrations[int(cam_id)] = Cal3Bundler(fx, k1, k2, u0, v0)
         elif model == "RADIAL":
-            _, _, img_w, img_h, fx, u0, v0, k1, k2 = cam_params[:9]
+            cam_id, _, img_w, img_h, fx, u0, v0, k1, k2 = cam_params[:9]
             img_w, img_h, fx, u0, v0, k1, k2 = (
                 int(img_w),
                 int(img_h),
@@ -260,7 +260,7 @@ def read_cameras_txt(fpath: str) -> Optional[List[Cal3Bundler]]:
                 float(k1),
                 float(k2),
             )
-            calibrations.append(Cal3Bundler(fx, k1, k2, u0, v0))
+            calibrations[int(cam_id)] = Cal3Bundler(fx, k1, k2, u0, v0)
 
     assert len(calibrations) == num_cams
     return calibrations
@@ -306,7 +306,7 @@ def write_cameras(gtsfm_data: GtsfmData, images: List[Image], save_dir: str) -> 
             f.write(f"{i} {camera_model} {image_width} {image_height} {fx} {u0} {v0} {k1} {k2}\n")
 
 
-def read_images_txt(fpath: str) -> Tuple[Optional[List[Pose3]], Optional[List[str]]]:
+def read_images_txt(fpath: str) -> Tuple[Optional[List[Pose3]], Optional[List[str]], Optional[List[int]]]:
     """Read camera poses and image file names from a COLMAP-format images.txt file.
 
     Reference: https://colmap.github.io/format.html#images-txt
@@ -325,24 +325,26 @@ def read_images_txt(fpath: str) -> Tuple[Optional[List[Pose3]], Optional[List[st
     """
     if not Path(fpath).exists():
         logger.info("%s does not exist", fpath)
-        return None, None
+        return None, None, None
 
     with open(fpath, "r") as f:
         lines = f.readlines()
 
     wTi_list = []
     img_fnames = []
+    cam_ids = []
     # ignore first 4 lines of text -- they contain a description of the file format
     # and a record of the number of reconstructed images.
     for line in lines[4::2]:
-        i, qw, qx, qy, qz, tx, ty, tz, i, img_fname = line.split()
+        img_id, qw, qx, qy, qz, tx, ty, tz, cam_id, img_fname = line.split()
         # Colmap provides extrinsics, so must invert
         iRw = Rot3(float(qw), float(qx), float(qy), float(qz))
         wTi = Pose3(iRw, np.array([tx, ty, tz], dtype=np.float64)).inverse()
         wTi_list.append(wTi)
         img_fnames.append(img_fname)
+        cam_ids.append(int(cam_id))
 
-    return wTi_list, img_fnames
+    return wTi_list, img_fnames, cam_ids
 
 
 def write_images(gtsfm_data: GtsfmData, images: List[Image], save_dir: str) -> None:
@@ -454,8 +456,9 @@ def read_scene(
     images_fpath: str, cameras_fpath: str, points_fpath: str
 ) -> Tuple[List[Pose3], List[str], List[Cal3Bundler], np.ndarray, np.ndarray]:
     """Reads in full scene reconstruction model."""
-    wTi_list, img_fnames = read_images_txt(images_fpath)
-    calibrations = read_cameras_txt(cameras_fpath)
+    wTi_list, img_fnames, cam_ids = read_images_txt(images_fpath)
+    calibs = read_cameras_txt(cameras_fpath)
+    calibrations = [calibs[cam_id] for cam_id in cam_ids]
     point_cloud, rgb = read_points_txt(points_fpath)
     if any(x is None for x in [wTi_list, img_fnames, calibrations, point_cloud, rgb]):
         raise RuntimeError("One or more of the requested model data products was not found.")

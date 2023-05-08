@@ -69,34 +69,36 @@ class ColmapLoader(LoaderBase):
         self._use_gt_extrinsics = use_gt_extrinsics
         self._max_frame_lookahead = max_frame_lookahead
 
-        wTi_list, img_fnames = io_utils.read_images_txt(fpath=os.path.join(colmap_files_dirpath, "images.txt"))
-        self._calibrations = io_utils.read_cameras_txt(fpath=os.path.join(colmap_files_dirpath, "cameras.txt"))
+        wTi_list, img_fnames, cam_ids = io_utils.read_images_txt(fpath=os.path.join(colmap_files_dirpath, "images.txt"))
+        calibs = io_utils.read_cameras_txt(fpath=os.path.join(colmap_files_dirpath, "cameras.txt"))
 
         # TODO in future PR: if img_fnames is None, default to using everything inside image directory
 
-        if self._calibrations is None:
+        if calibs is None:
             self._use_gt_intrinsics = False
-
-        if self._calibrations is not None and len(self._calibrations) == 1:
-            # shared calibration!
-            self._calibrations = self._calibrations * len(img_fnames)
 
         # preserve COLMAP ordering of images
 
         self._img_fnames = []
         self._image_paths = []
         self._wTi_list = []
+        selected_cam_ids = []
 
         # If one of the images is not found on disk, the assigned image indices will be re-ordered on disk
         # to skip the missing image.
-        for img_fname, wTi in zip(img_fnames, wTi_list):
+        for img_fname, wTi, cam_id in zip(img_fnames, wTi_list, cam_ids):
             img_fpath = os.path.join(images_dir, img_fname)
             if not Path(img_fpath).exists():
                 continue
             self._img_fnames.append(img_fname)
             self._image_paths.append(img_fpath)
             self._wTi_list.append(wTi)
+            selected_cam_ids.append(cam_id)
 
+        self._calibrations = []
+        if self._use_gt_intrinsics:
+            self._calibrations = [calibs[cam_id] for cam_id in selected_cam_ids]
+            assert len(self._calibrations) == len(self._image_paths)
         self._num_imgs = len(self._image_paths)
         logger.info("Colmap image loader found and loaded %d images", self._num_imgs)
 
