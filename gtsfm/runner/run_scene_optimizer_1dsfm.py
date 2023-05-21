@@ -28,6 +28,7 @@ class GtsfmRunnerOneDSFMLoader(GtsfmRunnerBase):
         loader = OneDSFMLoader(
             folder=self.parsed_args.dataset_root,
             image_extension=self.parsed_args.image_extension,
+            max_resolution=self.parsed_args.max_resolution,
         )
         return loader
 

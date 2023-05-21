@@ -10,17 +10,16 @@
 """
 
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
-"""
-Usage:
-cd gtsfm
-python benchmark/clear_result.py
-"""
+# Set result dir.
+RESULT_DIR = ""
 
-
-prefix = Path(__file__).resolve().parent.parent
+# Check result dir.
+if RESULT_DIR == "":
+    RESULT_DIR = str(Path(__file__).resolve().parent.parent)
+assert os.path.exists(RESULT_DIR)
 
 filenames = [
     "*-dask-report.html",
@@ -34,7 +33,8 @@ filenames = [
 ]
 
 print("Removing existing results ...")
-cmd_rm = "rm -rf " + " ".join(filenames)
+prefix = " " + RESULT_DIR + "/"
+cmd_rm = "rm -rf" + prefix + prefix.join(filenames)
 print(cmd_rm)
 subprocess.call(cmd_rm, shell=True)
 print("Done")

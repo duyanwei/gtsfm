@@ -87,7 +87,7 @@ class ColmapLoader(LoaderBase):
         # If one of the images is not found on disk, the assigned image indices will be re-ordered on disk
         # to skip the missing image.
         for img_fname, wTi, cam_id in zip(img_fnames, wTi_list, cam_ids):
-            img_fpath = os.path.join(images_dir, img_fname)
+            img_fpath = os.path.join(images_dir, "images", img_fname)
             if not Path(img_fpath).exists():
                 continue
             self._img_fnames.append(img_fname)

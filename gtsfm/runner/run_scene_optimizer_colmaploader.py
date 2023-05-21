@@ -26,6 +26,8 @@ class GtsfmRunnerColmapLoader(GtsfmRunnerBase):
             required=True,
             help="path to directory containing images.txt, points3D.txt, and cameras.txt",
         )
+        parser.add_argument("--use_gt_intrinsics", type=bool, default=True, help="")
+        parser.add_argument("--use_gt_extrinsics", type=bool, default=True, help="")
 
         return parser
 
@@ -33,6 +35,8 @@ class GtsfmRunnerColmapLoader(GtsfmRunnerBase):
         loader = ColmapLoader(
             colmap_files_dirpath=self.parsed_args.colmap_files_dirpath,
             images_dir=self.parsed_args.images_dir,
+            use_gt_intrinsics=self.parsed_args.use_gt_intrinsics,
+            use_gt_extrinsics=self.parsed_args.use_gt_extrinsics,
             max_frame_lookahead=self.parsed_args.max_frame_lookahead,
             max_resolution=self.parsed_args.max_resolution,
         )

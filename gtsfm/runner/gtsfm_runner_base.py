@@ -205,6 +205,7 @@ class GtsfmRunnerBase:
             )
             client = Client(cluster)
             # getting first worker's IP address and port to do IO
+            print(client.scheduler_info()["workers"])
             io_worker = list(client.scheduler_info()["workers"].keys())[0]
             self.loader._input_worker = io_worker
             self.scene_optimizer._output_worker = io_worker

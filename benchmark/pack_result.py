@@ -9,11 +9,18 @@
 @desc None
 """
 
-from pathlib import Path
-import subprocess
+import glob
 import os
+import zipfile
+from pathlib import Path
 
-prefix = Path(__file__).resolve().parent.parent
+# Set result dir.
+RESULT_DIR = ""
+
+# Check result dir.
+if RESULT_DIR == "":
+    RESULT_DIR = str(Path(__file__).resolve().parent.parent)
+assert os.path.exists(RESULT_DIR)
 
 filenames = [
     "*-dask-report.html",
@@ -25,10 +32,21 @@ filenames = [
     "visual_comparison_dashboard.zip",
 ]
 
-results = [os.path.join(prefix, s) for s in filenames]
-
-print("Zipping results ...")
-cmd_zip = "zip -r result.zip " + " ".join(filenames)
-print(cmd_zip)
-subprocess.call(cmd_zip, shell=True)
+with zipfile.ZipFile(os.path.join(RESULT_DIR, "../result.zip"), "w") as f:
+    for fname in filenames:
+        fpath = os.path.join(RESULT_DIR, fname)
+        fpath = os.path.abspath(fpath)
+        if os.path.isfile(fpath):
+            print(fpath)
+            f.write(fpath, arcname=fname)
+        elif "*" in fpath:
+            for subfile_fullpath in glob.glob(fpath):
+                print(subfile_fullpath)
+                f.write(subfile_fullpath, arcname=subfile_fullpath.replace(RESULT_DIR, ""))
+        else:
+            for root, dirs, files in os.walk(fpath):
+                for subfile in files:
+                    subfile_fullpath = os.path.join(root, subfile)
+                    print(subfile_fullpath)
+                    f.write(subfile_fullpath, arcname=subfile_fullpath.replace(RESULT_DIR, ""))
 print("Done")
